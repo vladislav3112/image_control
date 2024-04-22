@@ -104,7 +104,7 @@ p.setJointMotorControlArray(
     targetPositions=[0.0, 0.0, 1.5708, 0.0],
     controlMode=p.POSITION_CONTROL,
 )
-for _ in range(50):
+for _ in range(100):
     p.stepSimulation()
 
 updateCamPos(camera)
@@ -144,7 +144,7 @@ for t in logTime[1:]:
         L0 = computeInterMatrix(Z0, s0)
         L0T = np.linalg.inv(L0.T @ L0) @ L0.T
         e = s0 - sd0
-        coef = 1 / 20
+        coef = 1 / 2
         w = -coef * L0T @ e
 
     jStates = p.getJointStates(boxId, jointIndices=jointIndices)
@@ -166,8 +166,8 @@ for t in logTime[1:]:
     )
     dq = (np.linalg.inv(J) @ w).flatten()[[1, 0, 2, 3]]  # [[1, 0, 2, 3]]  # was
     dq[0] = -dq[0]
-    dq[2] = -dq[2]
-    #    dq[3] = -dq[3]
+    # dq[2] = -dq[2]
+    dq[3] = -dq[3]
 
     p.setJointMotorControlArray(
         bodyIndex=boxId,
