@@ -31,7 +31,7 @@ def computeInterMatrix(Z, sd0):
 
 
 def updateCamPos(cam):
-    linkState = p.getLinkState(boxId, linkIndex=7)
+    linkState = p.getLinkState(boxId, linkIndex=eefLinkIdx)
     # pos
     xyz = linkState[0]
     # orientation
@@ -69,7 +69,7 @@ logPos = np.zeros(sz)
 logPos[0] = q0
 logVel = np.zeros(sz)
 
-jointIndices = [1, 2, 4, 6]
+jointIndices = [1, 3, 5, 6]
 eefLinkIdx = 7
 
 # or p.DIRECT for non-graphical version
@@ -86,8 +86,9 @@ p.resetDebugVisualizerCamera(
 p.setGravity(0, 0, -10)
 boxId = p.loadURDF("combined/simple.urdf.xml", useFixedBase=True)
 
+CAMERA_POS = (0.5, 0.5, 0)
 # add aruco cube and aruco texture
-c = p.loadURDF("combined/aruco.urdf", (0.5, 0.5, 0), useFixedBase=True)
+c = p.loadURDF("combined/aruco.urdf", CAMERA_POS, useFixedBase=True)
 x = p.loadTexture("combined/aruco_cube.png")
 p.changeVisualShape(c, -1, textureUniqueId=x)
 
@@ -97,11 +98,16 @@ for idx in range(numJoints):
 
 print(p.isNumpyEnabled())
 
+old_pos = p.calculateInverseKinematics(
+    boxId, eefLinkIdx, CAMERA_POS, maxNumIterations=100
+)
+print(old_pos)
+old_pos = (0.0, 1.5708, 0.0, 0.0)
 # go to the desired position
 p.setJointMotorControlArray(
     bodyIndex=boxId,
     jointIndices=jointIndices,
-    targetPositions=[0.0, 0.0, 1.5708, 0.0],
+    targetPositions=old_pos,
     controlMode=p.POSITION_CONTROL,
 )
 for _ in range(100):
@@ -118,7 +124,12 @@ sd = np.reshape(np.array(corners[0][0]), (8, 1)).astype(int)
 p.setJointMotorControlArray(
     bodyIndex=boxId,
     jointIndices=jointIndices,
-    targetPositions=[0.05, 0.05, 1.4708, 0.05],
+    targetPositions=[
+        old_pos[0] + 0.1,
+        old_pos[1] - 0.1,
+        old_pos[2] + 0.1,
+        old_pos[3] + 0.1,
+    ],
     controlMode=p.POSITION_CONTROL,
 )
 for _ in range(100):
@@ -158,15 +169,11 @@ for t in logTime[1:]:
         objVelocities=[0, 0, 0, 0],
         objAccelerations=[0, 0, 0, 0],
     )
-    # print(np.array(np.array(angJac)[2, :]).shape)
-    # print(np.array(np.array(angJac)[2, :]))
-    # print([np.array(linJac)[:3, :3], np.zeros((3, 1))])
-    J = np.block(
-        [[np.array(linJac)[:3, :3], np.zeros((3, 1))], [np.array(angJac)[2, :]]]
-    )
+
+    J = np.block([[np.array(linJac)], [np.array(angJac)[2, :]]])
     dq = (np.linalg.inv(J) @ w).flatten()[[1, 0, 2, 3]]  # [[1, 0, 2, 3]]  # was
-    dq[0] = -dq[0]
-    # dq[2] = -dq[2]
+    # dq[0] = -dq[0]
+    dq[2] = -dq[2]
     dq[3] = -dq[3]
 
     p.setJointMotorControlArray(
