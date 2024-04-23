@@ -1,6 +1,7 @@
 import pybullet as p
 import numpy as np
 from camera import Camera
+import matplotlib.pyplot as plt
 import cv2
 
 IMG_SIDE = 300
@@ -18,6 +19,11 @@ dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 parameters = cv2.aruco.DetectorParameters()
 parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
 detector = cv2.aruco.ArucoDetector(dictionary, parameters)
+
+xline = []
+yline = []
+zline = []
+wdata = []
 
 
 def computeInterMatrix(Z, sd0):
@@ -62,7 +68,7 @@ yd = 0.5
 L = 0.5
 Z0 = 0.3
 pos = q0
-maxTime = 100
+maxTime = 10
 logTime = np.arange(0.0, maxTime, dt)
 sz = logTime.size
 logPos = np.zeros(sz)
@@ -125,10 +131,10 @@ p.setJointMotorControlArray(
     bodyIndex=boxId,
     jointIndices=jointIndices,
     targetPositions=[
-        old_pos[0] + 0.1,
-        old_pos[1] - 0.1,
-        old_pos[2] + 0.1,
-        old_pos[3] + 0.1,
+        old_pos[0],
+        old_pos[1],
+        old_pos[2] + 0.5,
+        old_pos[3],
     ],
     controlMode=p.POSITION_CONTROL,
 )
@@ -151,7 +157,7 @@ for t in logTime[1:]:
         s = corners[0][0, 0]
         s0 = np.reshape(np.array(corners[0][0]), (8, 1))
         s0 = np.array([(ss - IMG_HALF) / IMG_HALF for ss in s0])
-        Z0 = depth(camera)[0]
+        Z0 = p.getLinkState(boxId, eefLinkIdx)[0][2]
         L0 = computeInterMatrix(Z0, s0)
         L0T = np.linalg.inv(L0.T @ L0) @ L0.T
         e = s0 - sd0
@@ -171,7 +177,7 @@ for t in logTime[1:]:
     )
 
     J = np.block([[np.array(linJac)], [np.array(angJac)[2, :]]])
-    dq = (np.linalg.inv(J) @ w).flatten()[[1, 0, 2, 3]]  # [[1, 0, 2, 3]]  # was
+    dq = (np.linalg.inv(J) @ w).flatten()[[1, 0, 2, 3]]
     # dq[0] = -dq[0]
     dq[2] = -dq[2]
     dq[3] = -dq[3]
@@ -183,5 +189,23 @@ for t in logTime[1:]:
         controlMode=p.VELOCITY_CONTROL,
     )
     # time.sleep(0.01)
+    state = p.getLinkState(boxId, eefLinkIdx)
+    xline.append(state[0][0])
+    yline.append(state[0][1])
+    zline.append(state[0][2])
+
+    wdata.append(state[1][3])
+
+ax = plt.axes(projection="3d")
+
+# Data for a three-dimensional line
+ax.plot3D(xline, yline, zline, "gray")
 
 p.disconnect()
+plt.figure()
+plt.plot(range(0, len(zline)), zline)
+plt.xlabel("time tick number")
+plt.ylabel("angle")
+plt.show(block=False)
+
+print("ok")
